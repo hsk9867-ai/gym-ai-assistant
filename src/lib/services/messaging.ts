@@ -94,6 +94,36 @@ export async function sendKakaoToMember(opts: {
   }
 }
 
+/** 관장(센터 운영자)에게 발송 — 회원이 아니므로 동의 검사 없이 센터의 리포트 수신 번호로 보낸다 */
+export async function sendKakaoToOwner(opts: { centerId: string; template: TemplateKey | "DAILY_REPORT" | "WEEKLY_REPORT" | "MONTHLY_REPORT"; content: string }): Promise<SendResult> {
+  const center = await prisma.center.findUniqueOrThrow({ where: { id: opts.centerId }, select: { reportPhone: true, phone: true } });
+  const base = { centerId: opts.centerId, memberId: null, type: "INFO", channel: "KAKAO", template: opts.template, content: opts.content };
+  const to = (center.reportPhone ?? center.phone ?? "").replace(/\D/g, "");
+  if (!to) {
+    const m = await prisma.message.create({ data: { ...base, status: "FAILED", error: "리포트 수신 번호 없음 - 설정에서 입력하세요" } });
+    return { status: "FAILED", messageId: m.id, detail: m.error ?? undefined };
+  }
+  if (messagingMode() === "SIMULATED") {
+    const m = await prisma.message.create({ data: { ...base, status: "SIMULATED", sentAt: new Date() } });
+    return { status: "SIMULATED", messageId: m.id, detail: "발송 대행사 키 미설정 - 기록만 저장" };
+  }
+  const templateId = process.env[`KAKAO_TEMPLATE_${opts.template}`];
+  const cost = templateId ? MESSAGE_PRICE.KAKAO : MESSAGE_PRICE.LMS;
+  if (!(await useCredits(opts.centerId, cost, `${opts.template} 발송`))) {
+    const m = await prisma.message.create({ data: { ...base, status: "FAILED", error: "메시지 크레딧 잔액 부족" } });
+    return { status: "FAILED", messageId: m.id, detail: m.error ?? undefined };
+  }
+  try {
+    const providerId = await solapiSend({ to, text: opts.content, templateId });
+    const m = await prisma.message.create({ data: { ...base, status: "SENT", providerId, sentAt: new Date() } });
+    return { status: "SENT", messageId: m.id };
+  } catch (e) {
+    const err = e instanceof Error ? e.message : String(e);
+    const m = await prisma.message.create({ data: { ...base, status: "FAILED", error: err } });
+    return { status: "FAILED", messageId: m.id, detail: err };
+  }
+}
+
 /** Solapi 메시지 발송 (알림톡, 템플릿 없으면 SMS/LMS로 대체) */
 async function solapiSend(p: { to: string; text: string; templateId?: string; variables?: Record<string, string> }): Promise<string> {
   const apiKey = process.env.SOLAPI_API_KEY!;

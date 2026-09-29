@@ -49,6 +49,17 @@ npm run dev       # http://localhost:3000
 | AI 이벤트 포스터 (AI PRO) | `/events` — 이벤트 정보 입력 → Claude가 문구·색상·레이아웃 생성(키 없으면 템플릿) → 인스타 정사각/스토리/A4 포스터를 캔버스로 구성해 PNG 다운로드, 문구 복사 |
 | 구독 · 결제 | 설정 상단 — 현재 요금제/다음 결제일, 요금제 변경(BASIC 9,900 / SMART 19,900 / AI PRO 25,900원), 문자·카톡 크레딧 충전(보너스), 결제 내역. PG 키 없으면 테스트 결제 |
 
+| 관장 자동 리포트 | `/reports` — 일/주/월 리포트를 카카오톡 말풍선으로 미리보기, 즉시 발송, 발송 이력. 자동 발송은 `/api/cron/reports`를 매시간 호출(센터별 시각·토요일·말일 판단) |
+
+### 자동 리포트 스케줄 설정
+
+`/api/cron/reports`를 매시간 호출하면 센터별 `reportHour`(기본 22시)에 일일 보고, 토요일에 주간 보고, 말일에 월간 보고를 관장 휴대폰(설정의 리포트 수신 번호)으로 보냅니다. `.env`의 `CRON_SECRET`을 설정하면 `Authorization: Bearer <값>` 헤더가 필요합니다.
+
+Windows 작업 스케줄러 예시(매시간):
+```
+powershell -Command "Invoke-WebRequest -Uri http://localhost:3000/api/cron/reports -Headers @{Authorization='Bearer <CRON_SECRET>'} -UseBasicParsing"
+```
+
 ### AI 문구 생성 설정 (AI PRO)
 
 `.env`에 `ANTHROPIC_API_KEY`를 넣으면 이벤트 생성 시 Claude(`claude-opus-5`)가 문구·색상·레이아웃을 생성합니다. 키가 없으면 규칙 기반 템플릿 문구로 동작합니다. AI는 입력한 혜택·기간·대상만 사용하고 가격이나 할인율을 지어내지 않도록 지시되어 있습니다.

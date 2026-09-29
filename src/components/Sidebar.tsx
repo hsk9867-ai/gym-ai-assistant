@@ -12,6 +12,7 @@ const NAV: { href: string; label: string; adminOnly?: boolean; sales?: boolean }
   { href: "/payments", label: "매출", sales: true },
   { href: "/renewals", label: "재등록" },
   { href: "/messages", label: "메시지" },
+  { href: "/reports", label: "관장 리포트" },
   { href: "/events", label: "이벤트 · AI 포스터" },
   { href: "/stats", label: "통계", sales: true },
   { href: "/import", label: "Excel Import" },

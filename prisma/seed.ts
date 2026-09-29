@@ -64,7 +64,7 @@ async function main() {
     const firstStart = day(joinedOffset);
     const firstEnd = day(joinedOffset + (first.durationDays ?? 30) - 1);
     const firstMs = await prisma.membership.create({
-      data: { centerId: center.id, memberId: member.id, productId: first.id, productName: first.name, startDate: firstStart, endDate: firstEnd, amount: first.price, status: firstEnd < new Date() ? "EXPIRED" : "ACTIVE" },
+      data: { centerId: center.id, memberId: member.id, productId: first.id, productName: first.name, startDate: firstStart, endDate: firstEnd, amount: first.price, status: firstEnd < new Date() ? "EXPIRED" : "ACTIVE", createdAt: firstStart },
     });
     await prisma.payment.create({ data: { centerId: center.id, memberId: member.id, membershipId: firstMs.id, productName: first.name, amount: first.price, type: "NEW", method: rnd(["CARD", "CARD", "CASH", "TRANSFER"]), paidAt: firstStart, salespersonId: rnd([admin.id, trainer.id]) } });
 
@@ -76,7 +76,7 @@ async function main() {
         const start = day(1, firstEnd);
         const end = day((p.durationDays ?? 30) - 1, start);
         const ms = await prisma.membership.create({
-          data: { centerId: center.id, memberId: member.id, productId: p.id, productName: p.name, startDate: start, endDate: end, amount: p.price, isRenewal: true, status: end < new Date() ? "EXPIRED" : "ACTIVE" },
+          data: { centerId: center.id, memberId: member.id, productId: p.id, productName: p.name, startDate: start, endDate: end, amount: p.price, isRenewal: true, status: end < new Date() ? "EXPIRED" : "ACTIVE", createdAt: start },
         });
         await prisma.payment.create({ data: { centerId: center.id, memberId: member.id, membershipId: ms.id, productName: p.name, amount: p.price, type: "RENEWAL", method: "CARD", paidAt: start, salespersonId: admin.id } });
         await prisma.renewal.create({ data: { centerId: center.id, memberId: member.id, membershipId: firstMs.id, status: "RENEWED", answeredAt: start, answeredBy: "STAFF" } });

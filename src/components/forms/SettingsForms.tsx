@@ -5,7 +5,7 @@ import { createProductAction, updateCenterAction } from "@/app/actions/settings"
 import { SubmitButton } from "@/components/SubmitButton";
 import { Alert, Field, inputCls } from "@/components/ui";
 
-export function CenterForm({ center }: { center: { name: string; businessNumber: string | null; phone: string | null; address: string | null; plan: string; reportHour: number } }) {
+export function CenterForm({ center }: { center: { name: string; businessNumber: string | null; phone: string | null; address: string | null; plan: string; reportHour: number; reportPhone: string | null } }) {
   const [state, action] = useActionState(updateCenterAction, undefined);
   return (
     <form action={action} className="space-y-4">
@@ -24,6 +24,7 @@ export function CenterForm({ center }: { center: { name: string; businessNumber:
           </select>
         </Field>
         <Field label="일일보고 시각 (SMART 이상)"><input type="number" name="reportHour" min={0} max={23} defaultValue={center.reportHour} className={inputCls} /></Field>
+        <Field label="관장 리포트 수신 휴대폰" hint="비우면 센터 전화번호로 발송"><input name="reportPhone" defaultValue={center.reportPhone ?? ""} className={inputCls} placeholder="010-0000-0000" /></Field>
       </div>
       <SubmitButton>저장</SubmitButton>
     </form>

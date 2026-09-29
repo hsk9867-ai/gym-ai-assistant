@@ -18,6 +18,7 @@ export async function updateCenterAction(_prev: ActionState, formData: FormData)
       address: String(formData.get("address") ?? "") || null,
       plan: String(formData.get("plan") ?? "BASIC"),
       reportHour: Number(formData.get("reportHour") ?? 22),
+      reportPhone: String(formData.get("reportPhone") ?? "").trim() || null,
     },
   });
   revalidatePath("/settings");
