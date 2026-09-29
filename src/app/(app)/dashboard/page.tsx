@@ -3,7 +3,8 @@ import { requireCenterSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { refreshMemberStatuses } from "@/lib/services/members";
 import { ensureRenewals, listRenewals } from "@/lib/services/renewals";
-import { buildSummaryLines, dashboardStats } from "@/lib/services/stats";
+import { buildInsights, dailySeries, dashboardStats } from "@/lib/services/stats";
+import { DashboardBriefing } from "@/components/DashboardBriefing";
 import { Card, PageHeader, Stat, Badge } from "@/components/ui";
 import { num, pct, won, ymd, RENEWAL_STATUS } from "@/lib/format";
 
@@ -13,25 +14,47 @@ export default async function DashboardPage() {
   const s = await requireCenterSession();
   await refreshMemberStatuses(s.centerId);
   await ensureRenewals(s.centerId);
-  const [stats, center, upcoming] = await Promise.all([
+  const [stats, center, upcoming, daily, pendingContracts] = await Promise.all([
     dashboardStats(s.centerId),
     prisma.center.findUnique({ where: { id: s.centerId }, select: { plan: true, name: true } }),
     listRenewals(s.centerId, { status: "UNCONFIRMED" }),
+    dailySeries(s.centerId, 7),
+    prisma.contract.count({ where: { centerId: s.centerId, status: { in: ["DRAFT", "SENT"] } } }),
   ]);
   const showSales = s.canViewSales || s.role !== "STAFF";
-  const summary = buildSummaryLines(stats);
+  const insights = buildInsights(stats, { pendingContracts, weekVisitsDelta: daily.weekVisitsDelta }).filter((i) => showSales || i.href !== "/payments");
   const soon = upcoming.filter((r) => r.daysLeft >= 0 && r.daysLeft <= 7).slice(0, 8);
+
+  const kpis = [
+    ...(showSales ? [{ label: "오늘 매출", value: stats.today.sales, unit: "원", sub: `PT ${won(stats.today.ptSales)}` }] : []),
+    { label: "오늘 방문", value: stats.today.visits, unit: "명", sub: `활성회원 ${num(stats.members.active)}명` },
+    { label: "오늘 신규 · 재등록", value: stats.today.newMembers + stats.today.renewals, unit: "명", sub: `신규 ${stats.today.newMembers} · 재등록 ${stats.today.renewals}` },
+    ...(showSales
+      ? [{ label: "이번 달 매출", value: stats.month.sales, unit: "원", delta: stats.month.salesDelta, sub: "전월 동기간 대비" }]
+      : [{ label: "이번 달 재등록률", value: stats.month.renewalRate === null ? 0 : Math.round(stats.month.renewalRate * 100), unit: "%", sub: `만료 대상 ${stats.month.renewalTotal}명` }]),
+  ];
+  const actions = [
+    { label: "7일 내 만료", count: stats.members.expiring7, href: "/renewals?bucket=7", tone: "warn" as const },
+    { label: "미재등록 확인", count: stats.month.notRenewed, href: "/renewals?status=NOT_RENEWED", tone: "bad" as const },
+    { label: "장기 미방문", count: stats.members.dormant, href: "/members?status=DORMANT", tone: "warn" as const },
+    { label: "PT 3회 이하", count: stats.members.lowPt, href: "/pt?low=1", tone: "info" as const },
+    { label: "서명 대기 계약", count: pendingContracts, href: "/contracts?status=SENT", tone: "info" as const },
+  ];
 
   return (
     <div>
       <PageHeader title="대시보드" subtitle={`${center?.name} · ${ymd(new Date())}`} />
 
-      <Card className="mb-6 border-gray-900 bg-gray-900 text-white" title={center?.plan === "AI_PRO" ? "AI 요약" : "오늘의 요약"}>
-        <ul className="space-y-1.5 text-sm">
-          {summary.map((l) => <li key={l} className="flex gap-2"><span className="text-gray-400">•</span>{l}</li>)}
-        </ul>
-        {center?.plan !== "AI_PRO" && <p className="mt-3 text-xs text-gray-400">AI PRO 요금제에서는 이 영역에 AI가 해석한 경영 인사이트가 표시됩니다. (MVP 3)</p>}
-      </Card>
+      <DashboardBriefing
+        centerName={center?.name ?? ""}
+        plan={center?.plan ?? "BASIC"}
+        userName={s.name}
+        insights={insights}
+        kpis={kpis}
+        series={showSales ? daily.series : daily.series.map((p) => ({ ...p, sales: 0 }))}
+        actions={actions}
+        showSales={showSales}
+      />
 
       <h2 className="mb-2 text-sm font-semibold text-gray-500">오늘</h2>
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">

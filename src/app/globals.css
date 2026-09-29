@@ -4,6 +4,24 @@ body {
   font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, -apple-system, sans-serif;
 }
 
+/* 대시보드 브리핑 애니메이션 */
+@keyframes brief-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes brief-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes brief-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.brief-in { opacity: 0; animation: brief-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.brief-fade { opacity: 0; animation: brief-fade 0.8s ease-out 0.9s forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .brief-in, .brief-fade { animation: none; opacity: 1; }
+}
+
 @media print {
   .no-print { display: none !important; }
   body { background: #fff; }

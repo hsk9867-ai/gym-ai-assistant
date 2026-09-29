@@ -95,20 +95,64 @@ export async function dashboardStats(centerId: string) {
   };
 }
 
-/** 기획서 6.1 "AI 요약" 자리에 들어갈 규칙 기반 요약 문장 (AI PRO 이전 단계). */
-export function buildSummaryLines(s: Awaited<ReturnType<typeof dashboardStats>>): string[] {
-  const lines: string[] = [];
+export type InsightTone = "good" | "warn" | "bad" | "info";
+export interface Insight { tone: InsightTone; title: string; text: string; href?: string }
+
+/** 기획서 6.1 "AI 요약" 자리에 들어갈 규칙 기반 인사이트 (AI PRO 이전 단계). 중요도 순으로 정렬한다. */
+export function buildInsights(s: Awaited<ReturnType<typeof dashboardStats>>, extra: { pendingContracts: number; weekVisitsDelta: number | null }): Insight[] {
+  const out: Insight[] = [];
   if (s.month.salesDelta !== null) {
     const p = Math.round(s.month.salesDelta * 1000) / 10;
-    lines.push(`이번 달 매출은 전월 동기간 대비 ${p >= 0 ? `${p}% 증가` : `${Math.abs(p)}% 감소`}했습니다.`);
+    out.push(p >= 0
+      ? { tone: "good", title: "매출 상승", text: `이번 달 매출이 전월 동기간 대비 ${p}% 증가했습니다.`, href: "/payments" }
+      : { tone: p <= -10 ? "bad" : "warn", title: "매출 감소", text: `이번 달 매출이 전월 동기간 대비 ${Math.abs(p)}% 감소했습니다. 신규·재등록 흐름을 확인하세요.`, href: "/payments" });
   } else if (s.month.sales > 0) {
-    lines.push(`이번 달 누적 매출은 ${s.month.sales.toLocaleString("ko-KR")}원입니다.`);
+    out.push({ tone: "info", title: "이번 달 매출", text: `누적 ${s.month.sales.toLocaleString("ko-KR")}원. 비교할 전월 데이터가 아직 없습니다.`, href: "/payments" });
   }
-  lines.push(`다음 7일간 만료 예정 회원은 ${s.members.expiring7}명입니다.`);
-  if (s.members.dormant > 0) lines.push(`30일 이상 방문하지 않은 회원이 ${s.members.dormant}명 있습니다. 연락이 필요합니다.`);
-  if (s.members.lowPt > 0) lines.push(`PT 잔여 3회 이하 회원이 ${s.members.lowPt}명입니다. 재구매 안내를 권합니다.`);
-  if (s.month.renewalRate !== null) lines.push(`이번 달 만료 대상 ${s.month.renewalTotal}명 중 재등록률은 ${Math.round(s.month.renewalRate * 100)}%입니다.`);
-  return lines;
+  if (s.members.expiring7 > 0) {
+    out.push({ tone: s.members.expiring7 >= 10 ? "bad" : "warn", title: "만료 임박", text: `7일 이내 만료 예정 회원 ${s.members.expiring7}명. 지금 재등록 안내가 필요합니다.`, href: "/renewals?bucket=7" });
+  } else {
+    out.push({ tone: "good", title: "만료 임박 없음", text: "7일 이내 만료 예정 회원이 없습니다.", href: "/renewals" });
+  }
+  if (s.month.renewalRate !== null) {
+    const r = Math.round(s.month.renewalRate * 100);
+    out.push({ tone: r >= 60 ? "good" : r >= 40 ? "warn" : "bad", title: `재등록률 ${r}%`, text: `이번 달 만료 대상 ${s.month.renewalTotal}명 중 ${Math.round(s.month.renewalTotal * s.month.renewalRate)}명이 재등록했습니다.`, href: "/renewals/analytics" });
+  }
+  if (s.members.dormant > 0) out.push({ tone: "warn", title: "장기 미방문", text: `30일 이상 방문하지 않은 회원 ${s.members.dormant}명. 이탈 전 연락을 권합니다.`, href: "/members?status=DORMANT" });
+  if (s.members.lowPt > 0) out.push({ tone: "info", title: "PT 재구매 기회", text: `PT 잔여 3회 이하 회원 ${s.members.lowPt}명. 연장 상담 타이밍입니다.`, href: "/pt?low=1" });
+  if (extra.pendingContracts > 0) out.push({ tone: "info", title: "서명 대기", text: `서명이 완료되지 않은 계약 ${extra.pendingContracts}건이 있습니다.`, href: "/contracts?status=SENT" });
+  if (extra.weekVisitsDelta !== null && Math.abs(extra.weekVisitsDelta) >= 0.15) {
+    const p = Math.round(extra.weekVisitsDelta * 100);
+    out.push(p > 0
+      ? { tone: "good", title: "방문 증가", text: `최근 7일 방문이 그 전 주보다 ${p}% 늘었습니다.`, href: "/attendance" }
+      : { tone: "warn", title: "방문 감소", text: `최근 7일 방문이 그 전 주보다 ${Math.abs(p)}% 줄었습니다.`, href: "/attendance" });
+  }
+  const rank: Record<InsightTone, number> = { bad: 0, warn: 1, good: 2, info: 3 };
+  return out.sort((a, b) => rank[a.tone] - rank[b.tone]).slice(0, 6);
+}
+
+/** 최근 N일 일별 매출·방문 (스파크라인용) + 직전 주 대비 방문 변화 */
+export async function dailySeries(centerId: string, days = 7) {
+  const today = startOfDay();
+  const from = addDays(today, -(days * 2 - 1));
+  const [payments, visits] = await Promise.all([
+    prisma.payment.findMany({ where: { centerId, paidAt: { gte: from } }, select: { paidAt: true, amount: true } }),
+    prisma.attendance.findMany({ where: { centerId, checkedAt: { gte: from } }, select: { checkedAt: true } }),
+  ]);
+  const key = (d: Date) => startOfDay(d).getTime();
+  const salesMap = new Map<number, number>();
+  const visitMap = new Map<number, number>();
+  for (const p of payments) salesMap.set(key(p.paidAt), (salesMap.get(key(p.paidAt)) ?? 0) + p.amount);
+  for (const v of visits) visitMap.set(key(v.checkedAt), (visitMap.get(key(v.checkedAt)) ?? 0) + 1);
+  const series = Array.from({ length: days }, (_, i) => {
+    const d = addDays(today, -(days - 1 - i));
+    return { label: `${d.getMonth() + 1}/${d.getDate()}`, sales: salesMap.get(key(d)) ?? 0, visits: visitMap.get(key(d)) ?? 0 };
+  });
+  let prevVisits = 0;
+  for (let i = days; i < days * 2; i++) prevVisits += visitMap.get(key(addDays(today, -i))) ?? 0;
+  const curVisits = series.reduce((a, b) => a + b.visits, 0);
+  const weekVisitsDelta = prevVisits === 0 ? null : (curVisits - prevVisits) / prevVisits;
+  return { series, weekVisitsDelta };
 }
 
 export async function salesStats(centerId: string, month: Date) {
