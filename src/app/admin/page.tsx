@@ -4,10 +4,11 @@ import { prisma } from "@/lib/db";
 import { logoutAction } from "@/app/actions/auth";
 import { Card, PageHeader, Stat, Table } from "@/components/ui";
 import { PLAN_LABEL, num, won, ymd } from "@/lib/format";
+import { PLANS } from "@/lib/services/billing";
 
 export const dynamic = "force-dynamic";
 
-const PLAN_PRICE: Record<string, number> = { BASIC: 7900, SMART: 15900, AI_PRO: 19900 };
+const PLAN_PRICE: Record<string, number> = Object.fromEntries(Object.entries(PLANS).map(([k, p]) => [k, p.price]));
 
 export default async function SuperAdminPage() {
   const s = await getSession();

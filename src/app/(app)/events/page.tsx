@@ -28,7 +28,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="text-lg font-bold">AI PRO 전용 기능입니다</div>
-              <p className="mt-1 text-sm text-gray-600">현재 요금제: <b>{center.plan}</b>. AI PRO(월 19,900원)로 변경하면 AI 이벤트 포스터, AI 경영비서, 홈페이지 챗봇을 사용할 수 있습니다.</p>
+              <p className="mt-1 text-sm text-gray-600">현재 요금제: <b>{center.plan}</b>. AI PRO(월 25,900원)로 변경하면 AI 이벤트 포스터, AI 경영비서, 홈페이지 챗봇을 사용할 수 있습니다.</p>
             </div>
             <LinkButton href="/settings">요금제 변경 →</LinkButton>
           </div>

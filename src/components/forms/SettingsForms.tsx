@@ -18,9 +18,9 @@ export function CenterForm({ center }: { center: { name: string; businessNumber:
         <Field label="주소"><input name="address" defaultValue={center.address ?? ""} className={inputCls} /></Field>
         <Field label="요금제 (데모용 전환)" hint="실제 서비스에서는 슈퍼관리자/결제로 관리">
           <select name="plan" defaultValue={center.plan} className={inputCls}>
-            <option value="BASIC">BASIC (7,900원)</option>
-            <option value="SMART">SMART (15,900원)</option>
-            <option value="AI_PRO">AI PRO (19,900원)</option>
+            <option value="BASIC">BASIC (9,900원)</option>
+            <option value="SMART">SMART (19,900원)</option>
+            <option value="AI_PRO">AI PRO (25,900원)</option>
           </select>
         </Field>
         <Field label="일일보고 시각 (SMART 이상)"><input type="number" name="reportHour" min={0} max={23} defaultValue={center.reportHour} className={inputCls} /></Field>

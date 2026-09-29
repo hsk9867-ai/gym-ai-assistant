@@ -7,9 +7,9 @@ import { prisma } from "@/lib/db";
  */
 
 export const PLANS = {
-  BASIC: { name: "BASIC", price: 7900, desc: "회원·계약·출석·PT·기본 매출통계", features: ["회원관리", "전자계약", "출석·PT", "기본 매출통계", "재등록 관리(기본)"] },
-  SMART: { name: "SMART", price: 15900, desc: "자동 만료관리 · 미재등록 사유수집 · 일/주/월 보고", features: ["BASIC 전체", "자동 만료관리", "미재등록 사유수집", "일/주/월 관장 리포트", "키오스크"] },
-  AI_PRO: { name: "AI PRO", price: 19900, desc: "AI 분석 · AI 경영비서 · AI 포스터 · 홈페이지 챗봇", features: ["SMART 전체", "AI 데이터 분석", "AI 경영비서(자연어 질의)", "AI 이벤트 포스터", "홈페이지 AI 챗봇"] },
+  BASIC: { name: "BASIC", price: 9900, desc: "회원·계약·출석·PT·기본 매출통계", features: ["회원관리", "전자계약", "출석·PT", "기본 매출통계", "재등록 관리(기본)"] },
+  SMART: { name: "SMART", price: 19900, desc: "자동 만료관리 · 미재등록 사유수집 · 일/주/월 보고", features: ["BASIC 전체", "자동 만료관리", "미재등록 사유수집", "일/주/월 관장 리포트", "키오스크"] },
+  AI_PRO: { name: "AI PRO", price: 25900, desc: "AI 분석 · AI 경영비서 · AI 포스터 · 홈페이지 챗봇", features: ["SMART 전체", "AI 데이터 분석", "AI 경영비서(자연어 질의)", "AI 이벤트 포스터", "홈페이지 AI 챗봇"] },
 } as const;
 export type PlanKey = keyof typeof PLANS;
 
