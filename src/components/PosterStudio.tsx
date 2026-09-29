@@ -160,9 +160,9 @@ export function drawPoster(canvas: HTMLCanvasElement, size: PosterSize, copy: Ev
     ctx.fillText(`기간  ${period}`, pad, y);
   }
 
-  // 하단 CTA
+  // CTA: 정사각/A4는 하단 고정, 세로형은 본문 바로 아래 (가운데 공백 방지)
   const ctaH = 110 * u;
-  const ctaY = h - pad - ctaH;
+  const ctaY = tall ? y + 70 * u : h - pad - ctaH;
   ctx.font = font(800, 42);
   const ctaW = Math.min(ctx.measureText(copy.cta).width + 120 * u, w - pad * 2);
   ctx.fillStyle = copy.template === "minimal" ? accent : freshInk;
@@ -170,12 +170,21 @@ export function drawPoster(canvas: HTMLCanvasElement, size: PosterSize, copy: Ev
   ctx.fillStyle = copy.template === "minimal" ? (luminance(accent) > 0.6 ? "#111111" : "#ffffff") : (light || copy.template === "fresh" ? "#ffffff" : "#111111");
   ctx.fillText(copy.cta, pad + 60 * u, ctaY + 34 * u);
 
-  // 해시태그
+  // 해시태그: CTA 오른쪽에 공간이 있으면 같은 줄, 아니면 별도 줄
   ctx.font = font(500, 26);
   ctx.fillStyle = freshSoft;
-  ctx.textAlign = "right";
-  ctx.fillText(copy.hashtags.join("  "), w - pad, ctaY + 40 * u);
-  ctx.textAlign = "left";
+  const tags = copy.hashtags.join("  ");
+  const tagW = ctx.measureText(tags).width;
+  const spare = w - pad * 2 - ctaW - 40 * u;
+  if (tall) {
+    ctx.fillText(tags, pad, h - pad - 30 * u);
+  } else if (tagW <= spare) {
+    ctx.textAlign = "right";
+    ctx.fillText(tags, w - pad, ctaY + 40 * u);
+    ctx.textAlign = "left";
+  } else {
+    ctx.fillText(tags, pad, ctaY - 48 * u);
+  }
 }
 
 /* ---------- 스튜디오 UI ---------- */

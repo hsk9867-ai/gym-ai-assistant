@@ -44,6 +44,13 @@ function ymdKo(d?: Date | null) {
   return d ? `${d.getMonth() + 1}월 ${d.getDate()}일` : "";
 }
 
+/** 받침 유무에 따라 을/를 선택 */
+function eulReul(word: string) {
+  const code = word.charCodeAt(word.length - 1);
+  if (code < 0xac00 || code > 0xd7a3) return "를";
+  return (code - 0xac00) % 28 === 0 ? "를" : "을";
+}
+
 /** 키가 없을 때 쓰는 규칙 기반 문구 */
 export function templateCopy(input: EventInput): EventCopy {
   const p = PALETTES[input.tone] ?? PALETTES.energetic;
@@ -56,11 +63,12 @@ export function templateCopy(input: EventInput): EventCopy {
   return {
     headline,
     subheadline: target ? `${target} 대상 특별 혜택` : `${input.centerName} 이벤트`,
+    // 기간은 포스터에 별도 줄로 표시되므로 본문에는 넣지 않는다 (SNS 본문용 텍스트는 복사 시 기간이 따로 붙음)
     body: [
-      `${input.centerName}에서 "${input.title}" 이벤트를 진행합니다.`,
+      `${input.centerName}에서 ${input.title}${eulReul(input.title)} 진행합니다.`,
       discount ? `${discount} 혜택을 놓치지 마세요.` : "",
-      period ? `기간: ${period}` : "",
       input.description?.trim() ?? "",
+      period && !discount ? `${period} 동안 진행됩니다.` : "",
     ].filter(Boolean).join(" "),
     cta: "지금 데스크에 문의하세요",
     hashtags: ["#헬스장이벤트", `#${input.centerName.replace(/\s+/g, "")}`, "#재등록혜택", "#운동시작"].slice(0, 4),
