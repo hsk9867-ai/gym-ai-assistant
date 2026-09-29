@@ -52,7 +52,8 @@ export async function dashboardStats(centerId: string) {
     prisma.membership.count({ where: { centerId, status: "ACTIVE", endDate: { gte: dayStart, lte: addDays(dayStart, 7) } } }),
     prisma.membership.count({ where: { centerId, status: "ACTIVE", endDate: { gte: dayStart, lte: addDays(dayStart, 30) } } }),
     prisma.member.count({ where: { centerId, status: "DORMANT" } }),
-    prisma.$queryRaw<{ c: number }[]>`SELECT COUNT(*) as c FROM PtPackage WHERE centerId = ${centerId} AND (totalCount - usedCount) BETWEEN 1 AND 3`,
+    // DB 종류에 무관하게 동작하도록 raw SQL 대신 조회 후 계산 (SQLite/PostgreSQL 공용)
+    prisma.ptPackage.findMany({ where: { centerId }, select: { totalCount: true, usedCount: true } }).then((rows) => [{ c: rows.filter((p) => p.totalCount - p.usedCount >= 1 && p.totalCount - p.usedCount <= 3).length }]),
     sumPayments(centerId, mStart, mEnd),
     sumPayments(centerId, pStart, pSameEnd),
     prisma.member.count({ where: { centerId, joinedAt: { gte: mStart, lte: mEnd } } }),

@@ -1,13 +1,12 @@
 // 헬스장 AI 경영비서 플랫폼 - MVP 1 데이터 모델
-// 로컬 개발: SQLite. 운영 전환 시 provider를 "postgresql"로 바꾸고 마이그레이션을 다시 생성한다.
-// 모든 센터 데이터 테이블은 centerId(멀티테넌트 키)를 필수로 가진다.
+// PostgreSQL (Neon). 모든 센터 데이터 테이블은 centerId(멀티테넌트 키)를 필수로 가진다.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
