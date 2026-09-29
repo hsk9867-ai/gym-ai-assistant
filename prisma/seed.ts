@@ -25,7 +25,7 @@ async function main() {
   await prisma.user.deleteMany({ where: { email: { in: ["admin@demo.gym", "trainer@demo.gym", "super@platform.gym"] } } });
 
   const center = await prisma.center.create({
-    data: { name: "데모 피트니스", phone: "02-123-4567", address: "서울시 강남구 테헤란로 123", plan: "SMART", businessNumber: "123-45-67890", kioskToken: "demo-kiosk" },
+    data: { name: "데모 피트니스", phone: "02-123-4567", address: "서울시 강남구 테헤란로 123", plan: "SMART", businessNumber: "123-45-67890", kioskToken: "demo-kiosk", planStatus: "ACTIVE", planRenewsAt: day(20), messageCredits: 30000 },
   });
 
   const pw = await bcrypt.hash("demo1234", 10);

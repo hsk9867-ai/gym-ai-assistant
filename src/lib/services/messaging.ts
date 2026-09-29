@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { prisma } from "@/lib/db";
 import { decryptPhone } from "@/lib/crypto";
+import { MESSAGE_PRICE, useCredits } from "@/lib/services/billing";
 
 /**
  * 메시지 발송 계층.
@@ -75,6 +76,13 @@ export async function sendKakaoToMember(opts: {
 
   const to = decryptPhone(member.phoneEncrypted);
   const templateId = process.env[`KAKAO_TEMPLATE_${opts.template}`];
+  // 실제 발송 시 크레딧 차감 (알림톡 15원, 템플릿 없으면 SMS/LMS 단가)
+  const cost = templateId ? MESSAGE_PRICE.KAKAO : opts.content.length > 45 ? MESSAGE_PRICE.LMS : MESSAGE_PRICE.SMS;
+  const paid = await useCredits(opts.centerId, cost, `${opts.template} 발송`);
+  if (!paid) {
+    const m = await prisma.message.create({ data: { ...base, status: "FAILED", error: "메시지 크레딧 잔액 부족 - 설정에서 충전하세요" } });
+    return { status: "FAILED", messageId: m.id, detail: m.error ?? undefined };
+  }
   try {
     const providerId = await solapiSend({ to, text: opts.content, templateId, variables: opts.variables });
     const m = await prisma.message.create({ data: { ...base, status: "SENT", providerId, sentAt: new Date() } });
