@@ -1,0 +1,310 @@
+// 헬스장 AI 경영비서 플랫폼 - MVP 1 데이터 모델
+// 로컬 개발: SQLite. 운영 전환 시 provider를 "postgresql"로 바꾸고 마이그레이션을 다시 생성한다.
+// 모든 센터 데이터 테이블은 centerId(멀티테넌트 키)를 필수로 가진다.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Center {
+  id             String   @id @default(cuid())
+  name           String
+  businessNumber String?
+  phone          String?
+  address        String?
+  plan           String   @default("BASIC") // BASIC | SMART | AI_PRO
+  status         String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  reportHour     Int      @default(22)
+  kioskToken     String?  @unique // 입구 키오스크 화면 접근용 (/kiosk/{token})
+  createdAt      DateTime @default(now())
+
+  users        User[]
+  members      Member[]
+  products     Product[]
+  memberships  Membership[]
+  ptPackages   PtPackage[]
+  ptSessions   PtSession[]
+  attendances  Attendance[]
+  payments     Payment[]
+  contracts    Contract[]
+  renewals     Renewal[]
+  importJobs   ImportJob[]
+  messages     Message[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  centerId     String?
+  role         String   @default("STAFF") // SUPER_ADMIN | CENTER_ADMIN | STAFF
+  name         String
+  email        String   @unique
+  passwordHash String
+  canViewSales Boolean  @default(true)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  center           Center?      @relation(fields: [centerId], references: [id])
+  managedMembers   Member[]     @relation("MemberStaff")
+  trainedPackages  PtPackage[]  @relation("PtTrainer")
+  ptSessions       PtSession[]
+  soldPayments     Payment[]    @relation("Salesperson")
+
+  @@index([centerId])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  centerId     String
+  name         String
+  type         String // MEMBERSHIP | PT
+  durationDays Int?
+  ptCount      Int?
+  price        Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  center      Center       @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+  ptPackages  PtPackage[]
+
+  @@index([centerId])
+}
+
+model Member {
+  id             String    @id @default(cuid())
+  centerId       String
+  name           String
+  phoneEncrypted String
+  phoneHash      String
+  phoneLast4     String
+  gender         String? // M | F
+  status         String    @default("ACTIVE") // ACTIVE | EXPIRING | EXPIRED | PAUSED | DORMANT | WITHDRAWN
+  joinedAt       DateTime  @default(now())
+  lastVisitAt    DateTime?
+  memo           String?
+  staffId        String?
+  // 광고 수신 동의
+  smsAdConsent   Boolean   @default(false)
+  kakaoAdConsent Boolean   @default(false)
+  alimtalkConsent Boolean  @default(true)
+  consentAt      DateTime?
+  consentRevokedAt DateTime?
+  surveyToken    String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  center      Center       @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  staff       User?        @relation("MemberStaff", fields: [staffId], references: [id])
+  memberships Membership[]
+  ptPackages  PtPackage[]
+  ptSessions  PtSession[]
+  attendances Attendance[]
+  payments    Payment[]
+  contracts   Contract[]
+  renewals    Renewal[]
+  messages    Message[]
+
+  @@unique([centerId, phoneHash])
+  @@index([centerId, status])
+  @@index([centerId, name])
+}
+
+model Membership {
+  id          String   @id @default(cuid())
+  centerId    String
+  memberId    String
+  productId   String?
+  productName String
+  startDate   DateTime
+  endDate     DateTime
+  amount      Int      @default(0)
+  status      String   @default("ACTIVE") // ACTIVE | EXPIRED | PAUSED | CANCELLED
+  isRenewal   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  center    Center     @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  member    Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  product   Product?   @relation(fields: [productId], references: [id])
+  renewal   Renewal?
+  contracts Contract[]
+  payments  Payment[]
+
+  @@index([centerId, endDate])
+  @@index([memberId])
+}
+
+model PtPackage {
+  id          String    @id @default(cuid())
+  centerId    String
+  memberId    String
+  trainerId   String?
+  productId   String?
+  productName String
+  totalCount  Int
+  usedCount   Int       @default(0)
+  amount      Int       @default(0)
+  expireDate  DateTime?
+  createdAt   DateTime  @default(now())
+
+  center   Center      @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  member   Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer  User?       @relation("PtTrainer", fields: [trainerId], references: [id])
+  product  Product?    @relation(fields: [productId], references: [id])
+  sessions PtSession[]
+  payments Payment[]
+  contracts Contract[]
+
+  @@index([centerId])
+  @@index([memberId])
+}
+
+model PtSession {
+  id          String   @id @default(cuid())
+  centerId    String
+  ptPackageId String
+  memberId    String
+  trainerId   String?
+  usedAt      DateTime @default(now())
+  memo        String?
+
+  center    Center    @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  ptPackage PtPackage @relation(fields: [ptPackageId], references: [id], onDelete: Cascade)
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer   User?     @relation(fields: [trainerId], references: [id])
+
+  @@index([centerId, usedAt])
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  centerId  String
+  memberId  String
+  checkedAt DateTime @default(now())
+  source    String   @default("DESK") // DESK | KIOSK | QR
+
+  center Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([centerId, checkedAt])
+  @@index([memberId, checkedAt])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  centerId      String
+  memberId      String?
+  membershipId  String?
+  ptPackageId   String?
+  productName   String
+  amount        Int
+  type          String   @default("NEW") // NEW | RENEWAL | PT | ETC
+  method        String   @default("CARD") // CARD | CASH | TRANSFER | ETC
+  paidAt        DateTime @default(now())
+  salespersonId String?
+  memo          String?
+
+  center      Center      @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  member      Member?     @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  membership  Membership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  ptPackage   PtPackage?  @relation(fields: [ptPackageId], references: [id], onDelete: SetNull)
+  salesperson User?       @relation("Salesperson", fields: [salespersonId], references: [id])
+
+  @@index([centerId, paidAt])
+}
+
+model Contract {
+  id             String    @id @default(cuid())
+  centerId       String
+  memberId       String
+  membershipId   String?
+  ptPackageId    String?
+  contractType   String    @default("MEMBERSHIP") // MEMBERSHIP | PT | COMBINED
+  productName    String
+  amount         Int
+  startDate      DateTime?
+  endDate        DateTime?
+  ptCount        Int?
+  refundPolicy   String
+  termsVersion   String    @default("v1")
+  content        String // 서명 시점의 계약 본문 스냅샷
+  status         String    @default("DRAFT") // DRAFT | SENT | SIGNED | CANCELLED
+  signToken      String    @unique
+  signatureImage String?
+  signedAt       DateTime?
+  signedIp       String?
+  signedUserAgent String?
+  documentHash   String?
+  createdAt      DateTime  @default(now())
+
+  center     Center      @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  member     Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  membership Membership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  ptPackage  PtPackage?  @relation(fields: [ptPackageId], references: [id], onDelete: SetNull)
+
+  @@index([centerId, status])
+}
+
+// 재등록 관리 + 미재등록 설문 (회원권 1건당 1레코드)
+model Renewal {
+  id           String    @id @default(cuid())
+  centerId     String
+  memberId     String
+  membershipId String    @unique
+  status       String    @default("UNCONFIRMED") // UNCONFIRMED | PLANNED | RENEWED | NOT_RENEWED | UNREACHABLE
+  reason       String? // PRICE | TIME | OTHER_GYM | DISTANCE | FACILITY | TRAINER | PROGRAM | GOAL_DONE | ETC
+  feedback     String?
+  contactedAt  DateTime?
+  answeredAt   DateTime?
+  answeredBy   String? // STAFF | MEMBER
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  center     Center     @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  member     Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([centerId, status])
+}
+
+// 메시지 발송 기록 (정보성/광고성 완전 분리)
+model Message {
+  id         String    @id @default(cuid())
+  centerId   String
+  memberId   String?
+  type       String    @default("INFO") // INFO | AD
+  channel    String    @default("KAKAO") // KAKAO | SMS
+  template   String // PT_REMAIN | MEMBERSHIP_EXPIRE | CONTRACT_DONE | ...
+  content    String
+  status     String    @default("QUEUED") // QUEUED | SENT | SIMULATED | FAILED | SKIPPED
+  providerId String?
+  error      String?
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  center Center  @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  member Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([centerId, createdAt])
+  @@index([memberId])
+}
+
+model ImportJob {
+  id           String   @id @default(cuid())
+  centerId     String
+  fileName     String
+  totalRows    Int
+  insertedRows Int
+  updatedRows  Int
+  skippedRows  Int
+  errorRows    Int
+  createdAt    DateTime @default(now())
+
+  center Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  @@index([centerId])
+}
