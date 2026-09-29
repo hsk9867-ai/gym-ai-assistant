@@ -20,7 +20,6 @@ model Center {
   plan           String   @default("BASIC") // BASIC | SMART | AI_PRO
   status         String   @default("ACTIVE") // ACTIVE | SUSPENDED
   reportHour     Int      @default(22)
-  reportPhone    String? // 관장 리포트 수신 휴대폰 (없으면 센터 전화)
   kioskToken     String?  @unique // 입구 키오스크 화면 접근용 (/kiosk/{token})
   // 구독 · 결제
   planStatus     String   @default("TRIAL") // TRIAL | ACTIVE | PAST_DUE | CANCELLED
@@ -42,26 +41,6 @@ model Center {
   messages     Message[]
   events       Event[]
   billingTxs   BillingTransaction[]
-  reports      Report[]
-}
-
-// 관장 자동 리포트 (일/주/월)
-model Report {
-  id          String    @id @default(cuid())
-  centerId    String
-  type        String // DAILY | WEEKLY | MONTHLY
-  periodStart DateTime
-  periodEnd   DateTime
-  dataJson    String
-  text        String // 카카오로 발송된 본문
-  aiSummary   String? // AI PRO: AI 해석 (MVP 3)
-  status      String    @default("GENERATED") // GENERATED | SENT | FAILED
-  sentAt      DateTime?
-  createdAt   DateTime  @default(now())
-
-  center Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
-
-  @@index([centerId, type, periodStart])
 }
 
 // 이벤트 + AI 포스터
